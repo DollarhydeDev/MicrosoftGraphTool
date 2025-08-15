@@ -1,49 +1,28 @@
-﻿using System.Threading.Tasks;
+﻿using MicrosoftGraphTool.Services.Implementations;
 using System;
-using MicrosoftGraphTool.Services.Implementations;
-using MicrosoftGraphTool.Models;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 internal class Program
 {
     static async Task Main(string[] args)
     {
+        var tenantId = "";
+        var clientId = "";
+
         var graphService = new GraphService();
 
-        var tenantId = "YOUR_TENANT_ID";
-        var clientId = "YOUR_CLIENT_ID";
-        var clientSecret = "YOUR_CLIENT_SECRET";
+        var delegatedToken = await graphService.GetDelegatedAccessTokenAsync(tenantId, clientId, new[] { "Chat.ReadWrite", "ChatMessage.Send" });
 
-        OAuthToken oauthToken = new OAuthToken();
-
-        try
+        var chats = await graphService.GetGroupChatIdsAsync(delegatedToken);
+        if (!chats.Any())
         {
-            oauthToken = await graphService.GetOAuthToken(tenantId, clientId, clientSecret);
-
-            Console.WriteLine("Access Token:");
-            Console.WriteLine(oauthToken.TokenValue);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error getting auth token: {ex.Message}");
+            Console.WriteLine("No group chats found for this account.");
+            return;
         }
 
-        try
-        {
-            var distributionGroups = await graphService.GetMicrosoftGroups(oauthToken);
-            
-            foreach (var group in distributionGroups)
-            {
-                Console.WriteLine("");
-                Console.WriteLine($"ID: {group.Id}");
-                Console.WriteLine($"Display Name: {group.DisplayName}");
-                Console.WriteLine($"Mail Nickname: {group.MailNickname}");
-                Console.WriteLine($"Mail: {group.Mail}");
-                Console.WriteLine("-----------------------------");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error getting distribution groups: {ex.Message}");
-        }
+        await graphService.SendGroupChatMessageAsync(delegatedToken, chats[0] ?? string.Empty, "TestMessage!");
+        Console.WriteLine("Message sent.");
     }
 }
